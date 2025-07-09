@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DOS Defender</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-hud">
+            <div id="scoreDisplay">SCORE: 00000</div>
+            <div id="livesDisplay">LIVES: ###</div>
+            <div id="levelDisplay">LEVEL: 1</div>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+
+        <div id="gameOverlay" class="ui-overlay">
+            <h1 id="overlayTitle">DOS DEFENDER</h1>
+            <p id="overlayMessage">Press START to begin, or SPACEBAR to fire.</p>
+            <button id="startButton" class="game-button">START GAME</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

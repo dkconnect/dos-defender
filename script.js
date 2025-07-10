@@ -386,6 +386,42 @@ const keys = {
     Space: false
 };
 
+window.addEventListener('keydown', (e) => {
+    if (gameState === GameState.PLAYING) {
+        if (e.key === 'ArrowLeft') {
+            keys.ArrowLeft = true;
+            player.dx = -1;
+        } else if (e.key === 'ArrowRight') {
+            keys.ArrowRight = true;
+            player.dx = 1;
+        } else if (e.key === ' ') {
+            if (!keys.Space) { 
+                player.shoot();
+                keys.Space = true;
+            }
+        }
+    } else if (gameState === GameState.MENU || gameState === GameState.GAME_OVER || gameState === GameState.LEVEL_COMPLETE) {
+        if (e.key === 'Enter') {
+            startButton.click();
+        }
+    }
+});
+
+window.addEventListener('keyup', (e) => {
+    if (gameState === GameState.PLAYING) {
+        if (e.key === 'ArrowLeft') {
+            keys.ArrowLeft = false;
+            if (keys.ArrowRight) player.dx = 1; else player.dx = 0;
+        } else if (e.key === 'ArrowRight') {
+            keys.ArrowRight = false;
+            if (keys.ArrowLeft) player.dx = -1; else player.dx = 0;
+        } else if (e.key === ' ') {
+            keys.Space = false;
+        }
+    }
+});
+
+
 window.addEventListener('resize', () => {
     canvas.width = canvas.parentElement.clientWidth;
     canvas.height = canvas.parentElement.clientHeight;

@@ -19,9 +19,9 @@ const levelDisplay = document.getElementById('levelDisplay');
 const PLAYER_SPEED = 5;
 const PROJECTILE_SPEED = 7;
 const ENEMY_MIN_SPEED = 0.5;
-const ENEMY_MAX_SPEED_PER_LEVEL = 0.2; // enemy speed increases
+const ENEMY_MAX_SPEED_PER_LEVEL = 0.2;
 const ENEMY_SPAWN_INTERVAL = 1000; 
-const ENEMY_SPAWN_DECREASE_PER_LEVEL = 50;
+const ENEMY_SPAWN_DECREASE_PER_LEVEL = 50; 
 
 let player;
 let enemies = [];
@@ -124,7 +124,7 @@ class Player {
     }
 
     draw() {
-        ctx.fillStyle = '#0F0';
+        ctx.fillStyle = '#0F0'; 
         ctx.fillRect(this.x, this.y, this.width, this.height);
         ctx.fillRect(this.x + this.width / 4, this.y - 10, this.width / 2, 10);
     }
@@ -141,7 +141,7 @@ class Player {
     }
 
     shoot() {
-        const projectileX = this.x + this.width / 2 - 2; 
+        const projectileX = this.x + this.width / 2 - 2;
         const projectileY = this.y - 10; 
         projectiles.push(new Projectile(projectileX, projectileY));
         playShootSound();
@@ -163,7 +163,7 @@ class Projectile {
     }
 
     update(deltaTime) {
-        this.y -= this.speed * deltaTime / (1000 / 60); 
+        this.y -= this.speed * deltaTime / (1000 / 60);
     }
 }
 
@@ -209,7 +209,7 @@ class Enemy {
     }
 
     update(deltaTime) {
-        this.y += this.speed * deltaTime / (1000 / 60); 
+        this.y += this.speed * deltaTime / (1000 / 60); // Move downwards
     }
 }
 
@@ -219,3 +219,180 @@ function checkCollision(obj1, obj2) {
            obj1.y < obj2.y + obj2.height &&
            obj1.y + obj1.height > obj2.y;
 }
+
+function spawnEnemy() {
+    if (gameState !== GameState.PLAYING) return;
+
+    const enemyTypes = ['square', 'triangle', 'diamond'];
+    const randomType = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
+    const randomX = Math.random() * (canvas.width - 30);
+    const enemySpeed = ENEMY_MIN_SPEED + (level - 1) * ENEMY_MAX_SPEED_PER_LEVEL;
+    enemies.push(new Enemy(randomX, -30, randomType, enemySpeed)); // Start above canvas
+}
+
+function updateHUD() {
+    scoreDisplay.textContent = `SCORE: ${String(score).padStart(5, '0')}`;
+    livesDisplay.textContent = `LIVES: ${'#'.repeat(lives)}`;
+    levelDisplay.textContent = `LEVEL: ${level}`;
+}
+
+function initGame() {
+    canvas.width = canvas.parentElement.clientWidth;
+    canvas.height = canvas.parentElement.clientHeight;
+
+    player = new Player();
+    enemies = [];
+    projectiles = [];
+    score = 0;
+    lives = 3;
+    level = 1;
+    updateHUD();
+
+    if (enemySpawnTimer) {
+        clearInterval(enemySpawnTimer);
+    }
+    gameState = GameState.MENU;
+    showOverlay(GameState.MENU);
+}
+
+function startGame() {
+    gameState = GameState.PLAYING;
+    hideOverlay();
+    setupLevel(); 
+    gameLoop(0);
+}
+
+function setupLevel() {
+    enemies = [];
+    projectiles = [];
+    player.x = canvas.width / 2 - player.width / 2; 
+    updateHUD();
+
+    let currentSpawnInterval = Math.max(200, ENEMY_SPAWN_INTERVAL - (level - 1) * ENEMY_SPAWN_DECREASE_PER_LEVEL);
+    if (enemySpawnTimer) {
+        clearInterval(enemySpawnTimer);
+    }
+    enemySpawnTimer = setInterval(spawnEnemy, currentSpawnInterval);
+}
+
+function gameOver() {
+    gameState = GameState.GAME_OVER;
+    if (enemySpawnTimer) {
+        clearInterval(enemySpawnTimer);
+    }
+    playGameOverSound();
+    showOverlay(GameState.GAME_OVER);
+}
+
+function levelComplete() {
+    gameState = GameState.LEVEL_COMPLETE;
+    if (enemySpawnTimer) {
+        clearInterval(enemySpawnTimer);
+    }
+    playLevelUpSound();
+    overlayTitle.textContent = `LEVEL ${level} COMPLETE!`;
+    overlayMessage.innerHTML = `Great job, Defender!<br>Prepare for Level ${level + 1}.`;
+    startButton.textContent = `CONTINUE`;
+    startButton.onclick = () => {
+        level++;
+        startGame(); 
+    };
+    gameOverlay.style.display = 'flex';
+}
+
+function showOverlay(state) {
+    gameOverlay.style.display = 'flex';
+    if (state === GameState.MENU) {
+        overlayTitle.textContent = 'DOS DEFENDER';
+        overlayMessage.innerHTML = 'Press START to begin, or ARROW keys to move, SPACEBAR to fire.';
+        startButton.textContent = 'START GAME';
+        startButton.onclick = startGame;
+    } else if (state === GameState.GAME_OVER) {
+        overlayTitle.textContent = 'GAME OVER!';
+        overlayMessage.innerHTML = `Your score: ${score}<br>The system has crashed.`;
+        startButton.textContent = 'RESTART';
+        startButton.onclick = initGame; 
+    }
+}
+
+function hideOverlay() {
+    gameOverlay.style.display = 'none';
+}
+
+function gameLoop(currentTime) {
+    const deltaTime = currentTime - lastFrameTime;
+    lastFrameTime = currentTime;
+
+    if (gameState === GameState.PLAYING) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height); 
+
+        player.update(deltaTime);
+        player.draw();
+
+        projectiles = projectiles.filter(p => {
+            p.update(deltaTime);
+            p.draw();
+            return p.y > -p.height; 
+        });
+
+        enemies = enemies.filter(enemy => {
+            enemy.update(deltaTime);
+            enemy.draw();
+
+            if (checkCollision(player, enemy)) {
+                playExplosionSound();
+                lives--;
+                updateHUD();
+                if (lives <= 0) {
+                    gameOver();
+                    return false;
+                }
+                return false; 
+            }
+
+            for (let i = 0; i < projectiles.length; i++) {
+                if (checkCollision(projectiles[i], enemy)) {
+                    playExplosionSound();
+                    score += 100; 
+                    updateHUD();
+                    projectiles.splice(i, 1); 
+                    return false; 
+                }
+            }
+            return enemy.y < canvas.height;
+        });
+        
+        if (enemies.length === 0 && enemySpawnTimer && gameState === GameState.PLAYING) { 
+
+            const enemiesPerLevel = 10 + (level - 1) * 5; 
+            if (score >= level * 1000 && enemies.length === 0) { 
+                 if (enemySpawnTimer) {
+                    clearInterval(enemySpawnTimer);
+                    enemySpawnTimer = null;
+                 }
+                levelComplete();
+            }
+        }
+    }
+
+    if (gameState === GameState.PLAYING) {
+        requestAnimationFrame(gameLoop); 
+    }
+}
+
+const keys = {
+    ArrowLeft: false,
+    ArrowRight: false,
+    Space: false
+};
+
+window.addEventListener('resize', () => {
+    canvas.width = canvas.parentElement.clientWidth;
+    canvas.height = canvas.parentElement.clientHeight;
+    if (player) {
+        player.x = canvas.width / 2 - player.width / 2;
+        player.y = canvas.height - player.height - 30;
+    }
+});
+
+window.onload = initGame;

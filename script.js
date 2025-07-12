@@ -20,8 +20,8 @@ const PLAYER_SPEED = 5;
 const PROJECTILE_SPEED = 7;
 const ENEMY_MIN_SPEED = 0.5;
 const ENEMY_MAX_SPEED_PER_LEVEL = 0.2;
-const ENEMY_SPAWN_INTERVAL = 1000; 
-const ENEMY_SPAWN_DECREASE_PER_LEVEL = 50; 
+const ENEMY_SPAWN_INTERVAL = 1000;
+const ENEMY_SPAWN_DECREASE_PER_LEVEL = 50;
 
 let player;
 let enemies = [];
@@ -31,6 +31,8 @@ let lives = 3;
 let level = 1;
 let enemySpawnTimer = null; 
 let lastFrameTime = 0; 
+let totalEnemiesToSpawn = 0; 
+let enemiesSpawnedCount = 0;
 
 const shootSynth = new Tone.PolySynth(Tone.Synth, {
     oscillator: {
@@ -68,6 +70,7 @@ const gameOverSynth = new Tone.NoiseSynth({
     }
 }).toDestination();
 
+// Level up sound (ascending tones)
 const levelUpSynth = new Tone.Synth({
     oscillator: {
         type: "sine"
@@ -113,6 +116,7 @@ document.body.addEventListener('click', () => {
     }
 }, { once: true });
 
+
 class Player {
     constructor() {
         this.width = 40;
@@ -125,13 +129,15 @@ class Player {
 
     draw() {
         ctx.fillStyle = '#0F0'; 
+        
         ctx.fillRect(this.x, this.y, this.width, this.height);
+
         ctx.fillRect(this.x + this.width / 4, this.y - 10, this.width / 2, 10);
     }
 
     update(deltaTime) {
-        this.x += this.dx * this.speed * deltaTime / (1000 / 60); 
-
+        this.x += this.dx * this.speed * deltaTime / (1000 / 60);
+        
         if (this.x < 0) {
             this.x = 0;
         }
@@ -141,7 +147,7 @@ class Player {
     }
 
     shoot() {
-        const projectileX = this.x + this.width / 2 - 2;
+        const projectileX = this.x + this.width / 2 - 2; 
         const projectileY = this.y - 10; 
         projectiles.push(new Projectile(projectileX, projectileY));
         playShootSound();
@@ -158,12 +164,12 @@ class Projectile {
     }
 
     draw() {
-        ctx.fillStyle = '#FF0'; 
+        ctx.fillStyle = '#FF0';
         ctx.fillRect(this.x, this.y, this.width, this.height);
     }
 
     update(deltaTime) {
-        this.y -= this.speed * deltaTime / (1000 / 60);
+        this.y -= this.speed * deltaTime / (1000 / 60); 
     }
 }
 
@@ -209,7 +215,7 @@ class Enemy {
     }
 
     update(deltaTime) {
-        this.y += this.speed * deltaTime / (1000 / 60); // Move downwards
+        this.y += this.speed * deltaTime / (1000 / 60);
     }
 }
 
@@ -221,13 +227,22 @@ function checkCollision(obj1, obj2) {
 }
 
 function spawnEnemy() {
-    if (gameState !== GameState.PLAYING) return;
+
+    if (gameState !== GameState.PLAYING || enemiesSpawnedCount >= totalEnemiesToSpawn) {
+        if (enemySpawnTimer) {
+            clearInterval(enemySpawnTimer);
+            enemySpawnTimer = null; 
+            console.log("Spawn timer cleared, all enemies for level spawned.");
+        }
+        return;
+    }
 
     const enemyTypes = ['square', 'triangle', 'diamond'];
     const randomType = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
     const randomX = Math.random() * (canvas.width - 30);
     const enemySpeed = ENEMY_MIN_SPEED + (level - 1) * ENEMY_MAX_SPEED_PER_LEVEL;
     enemies.push(new Enemy(randomX, -30, randomType, enemySpeed)); // Start above canvas
+    enemiesSpawnedCount++; 
 }
 
 function updateHUD() {
@@ -237,6 +252,7 @@ function updateHUD() {
 }
 
 function initGame() {
+    console.log("initGame: Initializing game components.");
     canvas.width = canvas.parentElement.clientWidth;
     canvas.height = canvas.parentElement.clientHeight;
 
@@ -246,48 +262,63 @@ function initGame() {
     score = 0;
     lives = 3;
     level = 1;
+    totalEnemiesToSpawn = 0;
+    enemiesSpawnedCount = 0;
     updateHUD();
 
     if (enemySpawnTimer) {
         clearInterval(enemySpawnTimer);
+        enemySpawnTimer = null;
     }
     gameState = GameState.MENU;
     showOverlay(GameState.MENU);
+    console.log("initGame: Game initialized, showing menu.");
 }
 
 function startGame() {
+    console.log("startGame: Entering function.");
     gameState = GameState.PLAYING;
     hideOverlay();
     setupLevel(); 
     gameLoop(0);
+    console.log("startGame: Exiting function. gameState set to PLAYING. Game loop started.");
 }
 
 function setupLevel() {
-    enemies = [];
+    console.log(`setupLevel: Setting up Level ${level}.`);
+    enemies = []; 
     projectiles = [];
-    player.x = canvas.width / 2 - player.width / 2; 
+    player.x = canvas.width / 2 - player.width / 2;
     updateHUD();
 
+    totalEnemiesToSpawn = 5 + (level * 2); 
+    enemiesSpawnedCount = 0; 
+    
     let currentSpawnInterval = Math.max(200, ENEMY_SPAWN_INTERVAL - (level - 1) * ENEMY_SPAWN_DECREASE_PER_LEVEL);
     if (enemySpawnTimer) {
         clearInterval(enemySpawnTimer);
     }
     enemySpawnTimer = setInterval(spawnEnemy, currentSpawnInterval);
+    console.log(`setupLevel: Enemy spawn interval: ${currentSpawnInterval}ms, Total enemies for level: ${totalEnemiesToSpawn}`);
 }
 
 function gameOver() {
+    console.log("gameOver: Game Over triggered.");
     gameState = GameState.GAME_OVER;
     if (enemySpawnTimer) {
         clearInterval(enemySpawnTimer);
+        enemySpawnTimer = null;
     }
     playGameOverSound();
     showOverlay(GameState.GAME_OVER);
 }
 
 function levelComplete() {
+    console.log(`levelComplete: Level ${level} completed!`);
     gameState = GameState.LEVEL_COMPLETE;
     if (enemySpawnTimer) {
         clearInterval(enemySpawnTimer);
+        enemySpawnTimer = null;
     }
     playLevelUpSound();
     overlayTitle.textContent = `LEVEL ${level} COMPLETE!`;
@@ -313,10 +344,12 @@ function showOverlay(state) {
         startButton.textContent = 'RESTART';
         startButton.onclick = initGame; 
     }
+    console.log(`showOverlay: Displaying overlay for state: ${state}`);
 }
 
 function hideOverlay() {
     gameOverlay.style.display = 'none';
+    console.log("hideOverlay: Hiding overlay.");
 }
 
 function gameLoop(currentTime) {
@@ -324,7 +357,7 @@ function gameLoop(currentTime) {
     lastFrameTime = currentTime;
 
     if (gameState === GameState.PLAYING) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height); 
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         player.update(deltaTime);
         player.draw();
@@ -343,12 +376,14 @@ function gameLoop(currentTime) {
                 playExplosionSound();
                 lives--;
                 updateHUD();
+
                 if (lives <= 0) {
                     gameOver();
-                    return false;
+                    return false; 
                 }
-                return false; 
+                return false;
             }
+
 
             for (let i = 0; i < projectiles.length; i++) {
                 if (checkCollision(projectiles[i], enemy)) {
@@ -359,24 +394,22 @@ function gameLoop(currentTime) {
                     return false; 
                 }
             }
+
+
             return enemy.y < canvas.height;
         });
-        
-        if (enemies.length === 0 && enemySpawnTimer && gameState === GameState.PLAYING) { 
 
-            const enemiesPerLevel = 10 + (level - 1) * 5; 
-            if (score >= level * 1000 && enemies.length === 0) { 
-                 if (enemySpawnTimer) {
-                    clearInterval(enemySpawnTimer);
-                    enemySpawnTimer = null;
-                 }
-                levelComplete();
-            }
+        if (enemiesSpawnedCount >= totalEnemiesToSpawn && enemies.length === 0 && enemySpawnTimer === null && gameState === GameState.PLAYING) {
+            console.log("Level complete condition met!");
+            levelComplete();
         }
+
     }
 
     if (gameState === GameState.PLAYING) {
         requestAnimationFrame(gameLoop); 
+    } else {
+        console.log("gameLoop: Paused. Not requesting next frame. Current gameState:", gameState);
     }
 }
 
@@ -387,6 +420,7 @@ const keys = {
 };
 
 window.addEventListener('keydown', (e) => {
+    console.log("keydown: Key:", e.key, "Current gameState:", gameState);
     if (gameState === GameState.PLAYING) {
         if (e.key === 'ArrowLeft') {
             keys.ArrowLeft = true;
@@ -402,6 +436,7 @@ window.addEventListener('keydown', (e) => {
         }
     } else if (gameState === GameState.MENU || gameState === GameState.GAME_OVER || gameState === GameState.LEVEL_COMPLETE) {
         if (e.key === 'Enter') {
+            console.log("keydown: Enter pressed, simulating start button click.");
             startButton.click();
         }
     }
@@ -411,24 +446,36 @@ window.addEventListener('keyup', (e) => {
     if (gameState === GameState.PLAYING) {
         if (e.key === 'ArrowLeft') {
             keys.ArrowLeft = false;
-            if (keys.ArrowRight) player.dx = 1; else player.dx = 0;
+
+            player.dx = keys.ArrowRight ? 1 : 0;
         } else if (e.key === 'ArrowRight') {
             keys.ArrowRight = false;
-            if (keys.ArrowLeft) player.dx = -1; else player.dx = 0;
+
+            player.dx = keys.ArrowLeft ? -1 : 0;
         } else if (e.key === ' ') {
             keys.Space = false;
         }
     }
 });
 
-
 window.addEventListener('resize', () => {
+    console.log("Window resized.");
     canvas.width = canvas.parentElement.clientWidth;
     canvas.height = canvas.parentElement.clientHeight;
     if (player) {
         player.x = canvas.width / 2 - player.width / 2;
         player.y = canvas.height - player.height - 30;
     }
+
+    if (gameState === GameState.PLAYING) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        player.draw();
+        enemies.forEach(e => e.draw());
+        projectiles.forEach(p => p.draw());
+    }
 });
 
-window.onload = initGame;
+window.onload = () => {
+    console.log("window.onload: Script loaded, calling initGame.");
+    initGame();
+};
